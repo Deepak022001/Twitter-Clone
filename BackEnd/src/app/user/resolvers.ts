@@ -1,24 +1,29 @@
 import { PrismaClient } from '@prisma/client';
-import axios from 'axios';
+import axios, { toFormData } from 'axios';
+import JWTService from '../../services/jwt';
+
 interface GoogleTokenResults {
   iss?: string;
   nbf?: string;
   aud?: string;
   sub?: string;
-  email?: string;
+  email: string;
   email_verifed: string;
   azp?: string;
   name?: string;
   pictures?: string;
   given_name: string;
-  family_name?: string;
+  family_name: string;
   iat?: string;
   exp?: string;
   jti?: string;
   alg?: string;
   kid?: string;
+  profileImageUrl?: string;
   typ?: string;
 }
+const prisma = new PrismaClient();
+
 const queries = {
   verifyGoogleToken: async (parent: any, { token }: { token: string }) => {
     const googleToken = token;
@@ -30,22 +35,26 @@ const queries = {
         responseType: 'json',
       }
     );
-    const checkForUser = await PrismaClient.checkForUser.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: data.email },
     });
-    if (!checkForUser) {
-      await PrismaClient.user.create({
+    if (!user) {
+      await prisma.user.create({
         data: {
           email: data.email,
           firstName: data.given_name,
           lastName: data.family_name,
-          profileImageUrl: data.pictures,
+          // profileImageUrl: data.pictures,
         },
       });
     }
+    const userInDb = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+    if (!userInDb) throw new Error('User with email not found');
+    const userToken = await JWTService.generateforuser(userInDb);
 
-    console.log(data);
+    return userToken;
   },
 };
-
 export const resolvers = { queries };
