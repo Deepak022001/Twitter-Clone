@@ -2,8 +2,11 @@ import { BsBell, BsBookmark, BsEnvelope, BsTwitter } from 'react-icons/bs';
 import { SlOptions } from 'react-icons/sl';
 import { BiHash, BiHomeCircle, BiMoney, BiUser } from 'react-icons/bi';
 import FeedCard from './FeedCard';
-import { GoogleLogin } from '@react-oauth/google';
-
+import { CredentialResponse, GoogleLogin } from '@react-oauth/google';
+import { useCallback } from 'react';
+import toast from 'react-hot-toast';
+import { graphqlClient } from '@/clients/api';
+import { verifyUserGoogleTokenQuery } from '@/graphql/query/user';
 interface TwitterSideBarIcons {
   title: string;
   icon: React.ReactNode;
@@ -43,6 +46,26 @@ const sideBarItems: TwitterSideBarIcons[] = [
   },
 ];
 export default function Home() {
+  const handleLoginWithGoogle = useCallback(
+    async (cred: CredentialResponse) => {
+      const googleToken = cred.credential;
+      if (!googleToken) {
+        return toast.error(`Google Token not found`);
+      }
+      const { verifyGoogleToken } = await graphqlClient.request(
+        verifyUserGoogleTokenQuery,
+        {
+          token: googleToken,
+        }
+      );
+      toast.success('Verified Success');
+      console.log(verifyGoogleToken);
+      if (verifyGoogleToken) {
+        window.localStorage.setItem('__twitter_token', verifyGoogleToken);
+      }
+    },
+    []
+  );
   return (
     <div>
       {/* main div */}
@@ -90,9 +113,7 @@ export default function Home() {
           <div className='border p-5 bg-slate-700'>
             <h1>New to Twitter?</h1>
             <GoogleLogin
-              onSuccess={(credentialResponse) => {
-                console.log(credentialResponse);
-              }}
+              onSuccess={handleLoginWithGoogle}
               onError={() => {
                 console.log('Login Failed');
               }}
